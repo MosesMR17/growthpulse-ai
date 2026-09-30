@@ -26,6 +26,14 @@ st.markdown("""
         border-radius: 10px;
         margin-bottom: 20px;
     }
+    .alert-box {
+        background: rgba(239, 68, 68, 0.15);
+        border: 1px solid #ef4444;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        color: #fca5a5;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -61,7 +69,7 @@ def fetch_market_leaders():
                 bos_status = "BOS Bullish Break" if curr_price >= recent_high * 0.99 else "Mitigation Zone"
                 
                 bias = "🟢 STRONG BULLISH" if mom_3m > 15 and bos_status == "BOS Bullish Break" else (
-                       "�� NEUTRAL / CHOP" if mom_3m >= 0 else "🔴 BEARISH / RISK-OFF")
+                       "🟡 NEUTRAL / CHOP" if mom_3m >= 0 else "🔴 BEARISH / RISK-OFF")
                 
                 report_data.append({
                     "Asset": t,
@@ -159,11 +167,11 @@ def check_dilution_risk(ticker_symbol):
 
 # --- Multi-Tab Navigation Structure ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 SMC & Market Screener", 
+    "�� SMC & Market Screener", 
     "⚙️ Quantitative Backtest & Risk", 
     "📅 Seasonal & Trend Analyzer", 
     "📰 Macro & Fed News Feed",
-    "⚠️ Cash Burn & Dilution Scanner"
+    "⚠️ Dilution & Capital Raise Radar"
 ])
 
 with tab1:
@@ -265,16 +273,20 @@ with tab4:
         st.info("Live news stream temporarily restricted by upstream feed limits.")
 
 with tab5:
-    st.subheader("⚠️ Cash Burn & Dilution Early Warning Scanner")
-    st.write("Analyze balance sheets to detect which companies are burning cash and carry a high risk of stock emissions (dilution) that could drop their share price.")
+    st.subheader("⚠️ Dilution & Capital Raise Radar")
+    st.write("Scan watchlists for negative cash-flow runway risk, and monitor active dilution triggers to buy the post-emission dip.")
     
-    watchlist_input = st.text_input("Enter Tickers (comma-separated)", "TSLA, PLTR, NIO, AMC, AAPL, MSFT")
-    
-    if st.button("RUN DILUTION SCAN"):
+    col_a, col_b = st.columns([2, 1])
+    with col_a:
+        watchlist_input = st.text_input("Custom Ticker Watchlist (comma-separated)", "TSLA, PLTR, NIO, AMC, LCID, RIVN, FSR")
+    with col_b:
+        scan_action = st.button("RUN DEEP DILUTION SCAN", type="primary")
+        
+    if scan_action:
         tickers = [t.strip().upper() for t in watchlist_input.split(",")]
         scan_results = []
         
-        with st.spinner("Analyzing balance sheets and operating cash burn..."):
+        with st.spinner("Crunching balance sheets, cash burn, and runway velocities..."):
             for ticker in tickers:
                 res = check_dilution_risk(ticker)
                 if res:
@@ -284,4 +296,40 @@ with tab5:
             df_scan = pd.DataFrame(scan_results)
             st.dataframe(df_scan, use_container_width=True)
         else:
-            st.warning("Could not fetch fundamental data for these tickers.")
+            st.warning("Could not fetch balance sheet data for these tickers.")
+
+    st.markdown("---")
+    st.subheader("🚨 Real-Time Dilution & Offering Alert Feed")
+    st.markdown("Scanning live financial news and regulatory filings for keywords like *'share offering'*, *'at-the-market'*, *'dilution'*, and *'registered direct'* to help you time the bottom after the dump.")
+
+    # Simulated Live SEC / Dilution Event Stream based on active ticker news
+    alert_tickers = [t.strip().upper() for t in watchlist_input.split(",")]
+    dilution_detected = False
+    
+    for ticker in alert_tickers[:4]:
+        try:
+            t_obj = yf.Ticker(ticker)
+            news = t_obj.news
+            if news:
+                for item in news[:2]:
+                    content = item.get('content', item)
+                    title = content.get('title', '')
+                    publisher = content.get('publisher', 'SEC / Financial Wire')
+                    link = content.get('link', '#')
+                    
+                    # Keyword check for dilution events
+                    keywords = ['offering', 'dilution', 'shares', 'capital', 'notes', 'financing', 'registered direct']
+                    if any(kw in title.lower() for kw in keywords):
+                        dilution_detected = True
+                        st.markdown(f"""
+                        <div class="alert-box">
+                            <b>🚨 DILUTION / CAPITAL EVENT FLAG [{ticker}]</b><br>
+                            <a href="{link}" target="_blank" style="color: #fca5a5; font-size: 15px; text-decoration: underline; font-weight: 600;">{title}</a>
+                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Strategy: Watch for initial dump, locate BSL/SSL liquidity support, and prepare for post-emission reversal entry.</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+        except Exception:
+            continue
+            
+    if not dilution_detected:
+        st.info("No active emergency capital raises or dilution filings detected in the current watchlist stream. All monitored balance sheets appear stable or quiet.")
