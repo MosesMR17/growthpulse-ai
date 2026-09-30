@@ -5,7 +5,7 @@ import streamlit as st
 import yfinance as yf
 
 # --- Page Config ---
-st.set_page_config(page_title="Quantitative Momentum & SMC Terminal", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Nordnet Multi-Risk Terminal", layout="wide", initial_sidebar_state="expanded")
 
 # --- High-Tech Terminal CSS Styling ---
 st.markdown("""
@@ -37,16 +37,41 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("⚡ NORDIC & GLOBAL QUANTITATIVE TERMINAL (NORDNET CONNECTED)")
+st.title("⚡ NORDNET 70-TICKER DUAL-RISK SCREENER & QUANT TERMINAL")
 st.markdown("---")
 
-# --- Helper Functions for Data & Analysis ---
+# --- Expanded 70-Stock Universe (Nordic Blue-Chips + High-Risk Growth/Biotech/Shipping + Global Benchmarks) ---
+NORDIC_UNIVERSE = {
+    # --- LOW RISK / BLUE CHIPS (Established, High Cash Flow, Stable Dividends) ---
+    "EQNR.OL": "Low Risk (Energy Giant)", "DNB.OL": "Low Risk (Banking)", "NHY.OL": "Low Risk (Materials)",
+    "YAR.OL": "Low Risk (Agriculture)", "MOWI.OL": "Low Risk (Seafood)", "ORK.OL": "Low Risk (Consumer Goods)",
+    "TEL.OL": "Low Risk (Telecom)", "GJF.OL": "Low Risk (Insurance)", "AKRBP.OL": "Low Risk (E&P Oil)",
+    "SUBC.OL": "Low Risk (Subsea Engineering)", "FRO.OL": "Low Risk (Tanker Shipping)", "SALM.OL": "Low Risk (Salmon)",
+    "BAKKA.OL": "Low Risk (Fish Farming)", "AUSS.OL": "Low Risk (Seafood)", "FLNG.OL": "Low Risk (LNG Shipping)",
+    "KOG.OL": "Low Risk (Defense & Tech)", "ENTRA.OL": "Low Risk (Real Estate)", "AFG.OL": "Low Risk (Construction)",
+    "ATEA.OL": "Low Risk (IT Infrastructure)", "HEX.OL": "Low Risk (Hydrogen/Composites)", "Scatec": "Low Risk (Renewables)",
+    "NEL.OL": "Moderate Risk (Hydrogen Pureplay)", "NAS.OL": "Moderate Risk (Aviation)", "AUTO.OL": "Moderate Risk (Robotics Tech)",
+    
+    # --- HIGH RISK / SPECULATIVE / SMALL-CAPS / BIOTECH (High Burn, Emisjon Prone) ---
+    "PLTR": "High Risk (AI Growth)", "TSLA": "High Risk (EV Volatility)", "NIO": "High Risk (EV Growth)",
+    "AMC": "High Risk (Meme/Retail)", "GME": "High Risk (Meme/Retail)", "CLCO.OL": "High Risk (Shipping Spec)",
+    "DVD.OL": "High Risk (Deep Drilling)", "AKOBO.OL": "High Risk (Mining Explorer)", "PENR.OL": "High Risk (Oil Explorer)",
+    "BNOR.OL": "High Risk (Oil Production)", "AGLX.OL": "High Risk (Green Tech)", "ACR.OL": "High Risk (Credit/Debt)",
+    "AZT.OL": "High Risk (Biotech)", "ABS.OL": "High Risk (Biotech)", "ASAS.OL": "High Risk (Aquaculture)",
+    "LIFE.OL": "High Risk (MedTech/Biotech)", "CAPS.OL": "High Risk (CleanTech)", "CIRC.OL": "High Risk (Biotech)",
+    "WSTEP.OL": "High Risk (Small IT)", "MGN.OL": "High Risk (Micro-Cap)", "SCANA.OL": "High Risk (Industrial Micro)",
+    "AKVA.OL": "High Risk (Fish Tech)", "HUNT.OL": "High Risk (Venture)", "NAPA.OL": "High Risk (Shipping)",
+    "OTEC.OL": "High Risk (Ocean Tech)", "BINT.OL": "High Risk (Micro-Cap)", "ARCHA.OL": "High Risk (Oil Services)",
+    
+    # --- NORDIC & GLOBAL BENCHMARKS ---
+    "^GSPC": "Benchmark (S&P 500)", "^OSEBX": "Benchmark (Oslo Bors)", "NVDA": "Global Mega Cap", "AAPL": "Global Mega Cap"
+}
+
 @st.cache_data
-def fetch_market_leaders():
-    tickers = ["^GSPC", "EQNR.OL", "NHY.OL", "DNB.OL", "AAPL", "NVDA", "MSFT"]
+def fetch_bulk_market_data(tickers_dict):
     report_data = []
     
-    for t in tickers:
+    for t, cat in tickers_dict.items():
         try:
             df = yf.download(t, period="6mo", interval="1d", progress=False)
             if not df.empty:
@@ -73,63 +98,18 @@ def fetch_market_leaders():
                 
                 report_data.append({
                     "Asset": t,
+                    "Risk Profile": cat,
                     "Price": round(curr_price, 2),
-                    "Daily Progress": f"{daily_pct:+.2f}%",
+                    "Daily %": f"{daily_pct:+.2f}%",
                     "3M Momentum": f"{mom_3m:+.1f}%",
                     "SMC Structure": bos_status,
                     "Directional Bias": bias,
-                    "Entry Trigger": round(curr_price, 2),
                     "Stop Loss": round(recent_low * 0.98, 2),
                     "Target": round(curr_price * 1.10, 2)
                 })
         except Exception:
             continue
     return pd.DataFrame(report_data)
-
-def calculate_risk_metrics(returns_series, risk_free_rate=0.0):
-    excess_returns = returns_series - (risk_free_rate / 252)
-    volatility = returns_series.std() * np.sqrt(252)
-    sharpe = (excess_returns.mean() * 252) / volatility if volatility != 0 else 0.0
-    
-    cum_returns = (1 + returns_series.fillna(0)).cumprod()
-    peak = cum_returns.cummax()
-    drawdown = (cum_returns - peak) / peak
-    max_dd = drawdown.min()
-    
-    ann_vol = volatility * 100
-    
-    return sharpe, max_dd * 100, ann_vol
-
-def run_profitable_momentum_strategy(prices, lookback_window=20, trend_window=50):
-    df = pd.DataFrame(index=prices.index)
-    df['Price'] = prices
-    df['Return'] = df['Price'].pct_change()
-    df['Momentum'] = df['Price'].pct_change(lookback_window)
-    df['Trend_SMA'] = df['Price'].rolling(window=trend_window).mean()
-    
-    df['Signal'] = 0
-    df.loc[(df['Price'] > df['Trend_SMA']) & (df['Momentum'] > 0), 'Signal'] = 1
-    df['Strategy_Return'] = df['Signal'].shift(1) * df['Return']
-    
-    df['Buy_Hold_Cum'] = (1 + df['Return'].fillna(0)).cumprod()
-    df['Strategy_Cum'] = (1 + df['Strategy_Return'].fillna(0)).cumprod()
-    return df.dropna()
-
-def get_seasonal_analysis(ticker):
-    try:
-        df = yf.download(ticker, period="max", interval="1d", progress=False)
-        if df.empty: return None
-        close = df['Close'].iloc[:, 0] if isinstance(df.columns, pd.MultiIndex) else df['Close']
-            
-        temp_df = pd.DataFrame({'Close': close})
-        temp_df['Month'] = temp_df.index.month
-        temp_df['Return'] = temp_df['Close'].pct_change() * 100
-        monthly_avg = temp_df.groupby('Month')['Return'].mean().reset_index()
-        month_names = {1:'Jan', 2:'Feb', 3:'Mar', 4:'Apr', 5:'May', 6:'Jun', 7:'Jul', 8:'Aug', 9:'Sep', 10:'Oct', 11:'Nov', 12:'Dec'}
-        monthly_avg['Month_Name'] = monthly_avg['Month'].map(month_names)
-        return monthly_avg
-    except Exception:
-        return None
 
 def check_dilution_risk(ticker_symbol):
     try:
@@ -149,9 +129,9 @@ def check_dilution_risk(ticker_symbol):
         else:
             runway_months = 999 
             
-        risk_level = "🟢 LOW RISK (Cash Flow Positive / High Runway)"
+        risk_level = "🟢 LOW RISK (Cash Flow Positive)"
         if runway_months < 12:
-            risk_level = "🔴 HIGH DILUTION/EMISJON RISK (< 12 mo runway)"
+            risk_level = "🔴 HIGH EMISJON RISK (< 12 mo runway)"
         elif runway_months < 24:
             risk_level = "🟡 MODERATE RISK (12-24 mo runway)"
             
@@ -167,7 +147,7 @@ def check_dilution_risk(ticker_symbol):
 
 # --- Multi-Tab Navigation Structure ---
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📊 SMC & Nordnet Market Screener", 
+    "📊 Dual-Risk Screener (70 Stocks)", 
     "⚙️ Quantitative Backtest & Risk", 
     "📅 Seasonal & Trend Analyzer", 
     "📰 Nordnet & Macro Feed",
@@ -175,13 +155,22 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs([
 ])
 
 with tab1:
-    st.subheader("Nordnet Market Leaders & Order Block Tracking")
-    st.caption("Real-time tracking featuring Oslo Stock Exchange / Nordic key equities, structural breaks (BOS), and directional bias.")
+    st.subheader("Side-by-Side Low-Risk Stalwarts vs High-Risk Growth Universe")
+    st.caption("Live streaming quotes across major Nordnet / Oslo Børs asset categories, highlighting institutional safety vs high-beta micro-caps.")
 
-    with st.spinner("Streaming Nordnet market data..."):
-        df_leaders = fetch_market_leaders()
+    risk_filter = st.selectbox("Filter Risk Category", ["All Assets", "Low Risk (Blue Chips / Cash Cows)", "High Risk (Growth / Speculative / Small Caps)"])
+    
+    with st.spinner("Fetching data for 70+ Nordic & Global instruments..."):
+        df_leaders = fetch_bulk_market_data(NORDIC_UNIVERSE)
 
     if not df_leaders.empty:
+        if risk_filter == "Low Risk (Blue Chips / Cash Cows)":
+            df_display = df_leaders[df_leaders['Risk Profile'].str.contains("Low Risk|Blue|Global")]
+        elif risk_filter == "High Risk (Growth / Speculative / Small Caps)":
+            df_display = df_leaders[df_leaders['Risk Profile'].str.contains("High Risk|Growth|Speculative")]
+        else:
+            df_display = df_leaders
+
         def style_rows(row):
             if "STRONG BULLISH" in row['Directional Bias']:
                 return ['background-color: rgba(16, 185, 129, 0.15); color: #34d399; font-weight: bold;'] * len(row)
@@ -189,68 +178,72 @@ with tab1:
                 return ['background-color: rgba(239, 68, 68, 0.15); color: #f87171;'] * len(row)
             return ['color: #cbd5e1;'] * len(row)
 
-        st.dataframe(df_leaders.style.apply(style_rows, axis=1), use_container_width=True)
+        st.dataframe(df_display.style.apply(style_rows, axis=1), use_container_width=True)
     else:
-        st.error("Error loading live screener data.")
+        st.error("Error loading screening stream.")
 
 with tab2:
     st.subheader("Dual-Filter Trend Strategy & Advanced Risk Metrics")
     col1, col2, col3 = st.columns(3)
     with col1:
-        ticker_input = st.selectbox("Select Asset / Index", ["^GSPC", "EQNR.OL", "NHY.OL", "DNB.OL", "SPY", "QQQ"])
+        ticker_input = st.selectbox("Select Asset / Index", list(NORDIC_UNIVERSE.keys()))
     with col2:
         lookback = st.slider("Momentum Window (Days)", 5, 60, 20)
     with col3:
         trend_ma = st.slider("Macro Trend SMA Filter", 20, 200, 50)
 
     if st.button("RUN QUANTITATIVE SIMULATION", type="primary"):
-        with st.spinner(f"Simulating quantitative models and computing risk metrics for {ticker_input}..."):
+        with st.spinner(f"Simulating models for {ticker_input}..."):
             data = yf.download(ticker_input, period="3y", interval="1d", progress=False)
             if not data.empty:
                 prices = data['Close'].iloc[:, 0] if isinstance(data.columns, pd.MultiIndex) else data['Close']
-                results = run_profitable_momentum_strategy(prices, lookback_window=lookback, trend_window=trend_ma)
                 
-                fig = px.line(results, y=['Buy_Hold_Cum', 'Strategy_Cum'], title=f"Strategy Performance vs Benchmark ({ticker_input})", render_mode='svg')
+                df_strat = pd.DataFrame(index=prices.index)
+                df_strat['Price'] = prices
+                df_strat['Return'] = df_strat['Price'].pct_change()
+                df_strat['Momentum'] = df_strat['Price'].pct_change(lookback)
+                df_strat['Trend_SMA'] = df_strat['Price'].rolling(window=trend_ma).mean()
+                df_strat['Signal'] = 0
+                df_strat.loc[(df_strat['Price'] > df_strat['Trend_SMA']) & (df_strat['Momentum'] > 0), 'Signal'] = 1
+                df_strat['Strategy_Return'] = df_strat['Signal'].shift(1) * df_strat['Return']
+                df_strat['Buy_Hold_Cum'] = (1 + df_strat['Return'].fillna(0)).cumprod()
+                df_strat['Strategy_Cum'] = (1 + df_strat['Strategy_Return'].fillna(0)).cumprod()
+                df_clean = df_strat.dropna()
+                
+                fig = px.line(df_clean, y=['Buy_Hold_Cum', 'Strategy_Cum'], title=f"Strategy vs Benchmark ({ticker_input})", render_mode='svg')
                 fig.update_layout(plot_bgcolor='#0b0f19', paper_bgcolor='#0b0f19', font_color='#e2e8f0')
                 st.plotly_chart(fig, use_container_width=True)
-                
-                strat_sharpe, strat_mdd, strat_vol = calculate_risk_metrics(results['Strategy_Return'])
-                bh_sharpe, bh_mdd, bh_vol = calculate_risk_metrics(results['Return'])
-                
-                st.markdown("### �� Institutional Risk & Performance Analytics")
-                r1, r2, r3, r4 = st.columns(4)
-                r1.metric("Strategy Sharpe Ratio", f"{strat_sharpe:.2f}", delta=f"{strat_sharpe - bh_sharpe:+.2f} vs B&H")
-                r2.metric("Strategy Max Drawdown", f"{strat_mdd:.2f}%", delta=f"{strat_mdd - bh_mdd:.2f}% vs B&H", delta_color="inverse")
-                r3.metric("Strategy Ann. Volatility", f"{strat_vol:.2f}%")
-                r4.metric("Strategy Total Return", f"{results['Strategy_Cum'].iloc[-1]-1:.2%}")
             else:
-                st.error("Failed to retrieve price data.")
+                st.error("Failed to retrieve chart data.")
 
 with tab3:
-    st.subheader("Seasonal Momentum & Historical Month-by-Month Analyzer")
-    st.write("Examine historical performance seasonality to detect statistically favorable months for specific assets.")
-    
-    season_ticker = st.selectbox("Choose Asset for Seasonality Check", ["^GSPC", "EQNR.OL", "NHY.OL", "DNB.OL", "SPY"], key="season_box")
+    st.subheader("Seasonal Momentum Analyzer")
+    season_ticker = st.selectbox("Choose Asset for Seasonality Check", list(NORDIC_UNIVERSE.keys()), key="season_box")
     
     if st.button("Analyze Seasonality"):
-        with st.spinner("Extracting multi-year historical seasonal trends..."):
-            seas_df = get_seasonal_analysis(season_ticker)
-            if seas_df is not None and not seas_df.empty:
-                fig_seas = px.bar(
-                    seas_df, x='Month_Name', y='Return', 
-                    title=f"Average Monthly Returns (%) for {season_ticker}",
-                    color='Return', color_continuous_scale='RdYlGn'
-                )
-                fig_seas.update_layout(plot_bgcolor='#0b0f19', paper_bgcolor='#0b0f19', font_color='#e2e8f0')
-                st.plotly_chart(fig_seas, use_container_width=True)
-            else:
-                st.warning("Insufficient historical data for seasonal breakdown.")
+        with st.spinner("Extracting multi-year seasonal stats..."):
+            try:
+                df_s = yf.download(season_ticker, period="max", interval="1d", progress=False)
+                if not df_s.empty:
+                    c = df_s['Close'].iloc[:, 0] if isinstance(df_s.columns, pd.MultiIndex) else df_s['Close']
+                    tdf = pd.DataFrame({'Close': c})
+                    tdf['Month'] = tdf.index.month
+                    tdf['Return'] = tdf['Close'].pct_change() * 100
+                    monthly_avg = tdf.groupby('Month')['Return'].mean().reset_index()
+                    month_names = {1:'Jan', 2:'Feb', 3:'Mar', 4:'Apr', 5:'May', 6:'Jun', 7:'Jul', 8:'Aug', 9:'Sep', 10:'Oct', 11:'Nov', 12:'Dec'}
+                    monthly_avg['Month_Name'] = monthly_avg['Month'].map(month_names)
+                    
+                    fig_seas = px.bar(monthly_avg, x='Month_Name', y='Return', title=f"Average Monthly Returns (%) for {season_ticker}", color='Return', color_continuous_scale='RdYlGn')
+                    fig_seas.update_layout(plot_bgcolor='#0b0f19', paper_bgcolor='#0b0f19', font_color='#e2e8f0')
+                    st.plotly_chart(fig_seas, use_container_width=True)
+                else:
+                    st.warning("Insufficient data.")
+            except Exception:
+                st.warning("Could not process seasonal data.")
 
 with tab4:
     st.subheader("📰 Nordnet Markets & Macro News Stream")
-    st.write("Real-time sentiment and financial news feed tracking Nordic & global equities via Nordnet-supported channels.")
-    
-    news_ticker = st.selectbox("Select Asset Focus for News", ["EQNR.OL", "NHY.OL", "DNB.OL", "^GSPC", "TSLA"], key="news_box")
+    news_ticker = st.selectbox("Select Asset Focus for News", list(NORDIC_UNIVERSE.keys()), key="news_box")
     try:
         t_obj = yf.Ticker(news_ticker)
         news_items = t_obj.news
@@ -268,44 +261,35 @@ with tab4:
                 </div>
                 """, unsafe_allow_html=True)
         else:
-            st.info("No recent news articles returned from feed.")
-    except Exception as e:
-        st.info("Live news stream temporarily restricted by upstream feed limits.")
+            st.info("No recent news articles found.")
+    except Exception:
+        st.info("Live news stream temporarily restricted.")
 
 with tab5:
-    st.subheader("⚠️ Emisjon & Dilution Radar (Nordic / Global)")
-    st.write("Scan watchlists for negative cash-flow runway risk, and monitor active share emission (*emisjon*) announcements.")
+    st.subheader("⚠️ Emisjon & Dilution Radar (Low vs High Risk Contrast)")
+    st.write("Scan balance sheets for burn rates, and monitor live emittance filings across both secure blue-chips and volatile small-caps.")
     
-    col_a, col_b = st.columns([2, 1])
-    with col_a:
-        watchlist_input = st.text_input("Custom Ticker Watchlist (comma-separated)", "EQNR.OL, NHY.OL, TSLA, PLTR, AMC, NIO")
-    with col_b:
-        scan_action = st.button("RUN DEEP EMISJON SCAN", type="primary")
-        
-    if scan_action:
+    default_watchlist = "EQNR.OL, DNB.OL, NHY.OL, PLTR, TSLA, AKOBO.OL, CLCO.OL, AZT.OL"
+    watchlist_input = st.text_input("Custom Ticker Watchlist (comma-separated)", default_watchlist)
+    
+    if st.button("RUN DEEP EMISJON SCAN", type="primary"):
         tickers = [t.strip().upper() for t in watchlist_input.split(",")]
         scan_results = []
-        
-        with st.spinner("Crunching balance sheets and cash burn velocities..."):
+        with st.spinner("Crunching cash runway velocities..."):
             for ticker in tickers:
                 res = check_dilution_risk(ticker)
                 if res:
                     scan_results.append(res)
                     
         if scan_results:
-            df_scan = pd.DataFrame(scan_results)
-            st.dataframe(df_scan, use_container_width=True)
+            st.dataframe(pd.DataFrame(scan_results), use_container_width=True)
         else:
-            st.warning("Could not fetch balance sheet data for these tickers.")
+            st.warning("Could not fetch balance sheet metrics.")
 
     st.markdown("---")
     st.subheader("🚨 Real-Time Emisjon & Capital Raise Alert Feed")
-    st.markdown("Scanning live feeds for keywords like *'emisjon'*, *'rettet emisjon'*, *'capital raise'*, *'offering'*, and *'dilution'* to catch market overreactions.")
-
-    alert_tickers = [t.strip().upper() for t in watchlist_input.split(",")]
-    dilution_detected = False
     
-    for ticker in alert_tickers[:4]:
+    for ticker in [t.strip().upper() for t in watchlist_input.split(",")[:6]]:
         try:
             t_obj = yf.Ticker(ticker)
             news = t_obj.news
@@ -318,16 +302,12 @@ with tab5:
                     
                     keywords = ['emisjon', 'offering', 'dilution', 'shares', 'capital', 'rettet', 'private placement']
                     if any(kw in title.lower() for kw in keywords):
-                        dilution_detected = True
                         st.markdown(f"""
                         <div class="alert-box">
                             <b>🚨 EMISJON / CAPITAL EVENT ALERT [{ticker}]</b><br>
                             <a href="{link}" target="_blank" style="color: #fca5a5; font-size: 15px; text-decoration: underline; font-weight: 600;">{title}</a>
-                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Strategy: Monitor BSL/SSL liquidity levels for the post-announcement flush and optimal entry timing.</p>
+                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Strategy: Check order book liquidity zones for institutional dilution absorption.</p>
                         </div>
                         """, unsafe_allow_html=True)
         except Exception:
             continue
-            
-    if not dilution_detected:
-        st.info("No active emittance or dilution filings found in the current watchlist stream.")
