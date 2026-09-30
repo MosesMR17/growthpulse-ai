@@ -123,12 +123,47 @@ def get_seasonal_analysis(ticker):
     except Exception:
         return None
 
+def check_dilution_risk(ticker_symbol):
+    try:
+        t = yf.Ticker(ticker_symbol)
+        bs = t.balance_sheet
+        cf = t.cashflow
+        
+        if bs.empty or cf.empty:
+            return None
+            
+        cash = bs.loc['Cash And Cash Equivalents'].iloc[0] if 'Cash And Cash Equivalents' in bs.index else 0
+        op_cash_flow = cf.loc['Operating Cash Flow'].iloc[0] if 'Operating Cash Flow' in cf.index else 0
+        
+        if op_cash_flow < 0:
+            monthly_burn = abs(op_cash_flow) / 12
+            runway_months = cash / monthly_burn if monthly_burn > 0 else 999
+        else:
+            runway_months = 999 
+            
+        risk_level = "🟢 LOW RISK (Cash Flow Positive / High Runway)"
+        if runway_months < 12:
+            risk_level = "🔴 HIGH DILUTION RISK (< 12 mo runway)"
+        elif runway_months < 24:
+            risk_level = "🟡 MODERATE RISK (12-24 mo runway)"
+            
+        return {
+            "Ticker": ticker_symbol,
+            "Cash Reserves ($)": f"${cash:,.0f}",
+            "Annual Burn ($)": f"${op_cash_flow:,.0f}",
+            "Est. Runway": f"{runway_months:.1f} months" if runway_months != 999 else "Infinite (Profitable)",
+            "Dilution Risk Status": risk_level
+        }
+    except Exception:
+        return None
+
 # --- Multi-Tab Navigation Structure ---
-tab1, tab2, tab3, tab4 = st.tabs([
+tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "📊 SMC & Market Screener", 
     "⚙️ Quantitative Backtest & Risk", 
     "📅 Seasonal & Trend Analyzer", 
-    "📰 Macro & Fed News Feed"
+    "📰 Macro & Fed News Feed",
+    "⚠️ Cash Burn & Dilution Scanner"
 ])
 
 with tab1:
@@ -228,3 +263,25 @@ with tab4:
             st.info("No recent news articles returned from feed.")
     except Exception as e:
         st.info("Live news stream temporarily restricted by upstream feed limits.")
+
+with tab5:
+    st.subheader("⚠️ Cash Burn & Dilution Early Warning Scanner")
+    st.write("Analyze balance sheets to detect which companies are burning cash and carry a high risk of stock emissions (dilution) that could drop their share price.")
+    
+    watchlist_input = st.text_input("Enter Tickers (comma-separated)", "TSLA, PLTR, NIO, AMC, AAPL, MSFT")
+    
+    if st.button("RUN DILUTION SCAN"):
+        tickers = [t.strip().upper() for t in watchlist_input.split(",")]
+        scan_results = []
+        
+        with st.spinner("Analyzing balance sheets and operating cash burn..."):
+            for ticker in tickers:
+                res = check_dilution_risk(ticker)
+                if res:
+                    scan_results.append(res)
+                    
+        if scan_results:
+            df_scan = pd.DataFrame(scan_results)
+            st.dataframe(df_scan, use_container_width=True)
+        else:
+            st.warning("Could not fetch fundamental data for these tickers.")
