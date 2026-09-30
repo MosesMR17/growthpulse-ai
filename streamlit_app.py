@@ -287,27 +287,44 @@ with tab5:
             st.warning("Could not fetch balance sheet metrics.")
 
     st.markdown("---")
-    st.subheader("🚨 Real-Time Emisjon & Capital Raise Alert Feed")
-    
-    for ticker in [t.strip().upper() for t in watchlist_input.split(",")[:6]]:
+    st.subheader("🚨 Real-Time Emisjon & Expanded Capital Raise Alert Feed")
+    st.markdown("Scanning live feeds across broadened Norwegian & international corporate communication keywords: *emisjon*, *rettet emisjon*, *reparasjonsemisjon*, *private placement*, *tegningsretter*, *subscription rights*, *dilution*, and *capital raise*.")
+
+    dilution_found = False
+    # Expanded keyword array covering Norwegian and English capital action terminology
+    emission_keywords = [
+        'emisjon', 'rettet emisjon', 'reparasjonsemisjon', 'private placement', 
+        'tegningsretter', 'subscription rights', 'dilution', 'capital raise', 
+        'share issue', 'bookbuilding', 'offering', 'shares'
+    ]
+
+    scan_tickers = [t.strip().upper() for t in watchlist_input.split(",")]
+    # Also check high risk subset automatically if list is small
+    auto_check_tickers = list(set(scan_tickers + ["AKOBO.OL", "AZT.OL", "CLCO.OL", "NEL.OL", "NAS.OL"]))
+
+    for ticker in auto_check_tickers:
         try:
             t_obj = yf.Ticker(ticker)
             news = t_obj.news
             if news:
-                for item in news[:2]:
+                for item in news:
                     content = item.get('content', item)
                     title = content.get('title', '')
                     publisher = content.get('publisher', 'Nordnet / Market Wire')
                     link = content.get('link', '#')
                     
-                    keywords = ['emisjon', 'offering', 'dilution', 'shares', 'capital', 'rettet', 'private placement']
-                    if any(kw in title.lower() for kw in keywords):
+                    title_lower = title.lower()
+                    if any(kw in title_lower for kw in emission_keywords):
+                        dilution_found = True
                         st.markdown(f"""
                         <div class="alert-box">
-                            <b>🚨 EMISJON / CAPITAL EVENT ALERT [{ticker}]</b><br>
+                            <b>🚨 EMISJON / CAPITAL EVENT DETECTED [{ticker}]</b><br>
                             <a href="{link}" target="_blank" style="color: #fca5a5; font-size: 15px; text-decoration: underline; font-weight: 600;">{title}</a>
-                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Strategy: Check order book liquidity zones for institutional dilution absorption.</p>
+                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Action: Review subscription period terms, discount to market price, and tegningsretter (subscription rights) trading tickers on Nordnet.</p>
                         </div>
                         """, unsafe_allow_html=True)
         except Exception:
             continue
+            
+    if not dilution_found:
+        st.info("No active corporate filing flags matched the expanded emission keyword bank for these specific tickers. Try adding known small-caps or checking active Oslo Børs disclosures directly via NewsWeb.")
