@@ -54,30 +54,50 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("⚡ NORDIC UNIVERSE: DILUTION, INSIDER BUYBACK & VOLUME INTELLIGENCE")
-st.markdown("Advanced balance sheet runway analysis, insider transaction tracking, volume execution multiples, and predictive scenario modeling.")
+st.markdown("Advanced balance sheet runway analysis, insider transaction tracking, volume execution multiples, and predictive scenario modeling across an expanded stock scan matrix.")
 
-# --- Comprehensive Universe ---
+# --- Expanded Universe (Massively Scaled Stock List) ---
 EXPANDED_UNIVERSE = {
-    # --- Energy, Oil Services & Shipping Speculation ---
-    "AKOBO.OL": "Mining Explorer", "CLCO.OL": "Shipping Spec", "DVD.OL": "Deep Drilling", 
-    "PENR.OL": "Oil Explorer", "BNOR.OL": "Oil Production", "ARCHA.OL": "Oil Services",
-    "FLNG.OL": "LNG Shipping", "FRO.OL": "Tanker Shipping", "NAPA.OL": "Shipping", "OTEC.OL": "Ocean Tech",
+    # --- Energy, Oil & Gas Majors / Exploration ---
+    "EQNR.OL": "Energy Giant", "AKRBP.OL": "Oil & Gas E&P", "VAR.OL": "Oil & Gas E&P", 
+    "DNO.OL": "Oil Explorer", "PENR.OL": "Oil Explorer", "BNOR.OL": "Oil Production", 
+    "BWE.OL": "Oil Production", "ARCHA.OL": "Oil Services", "DVD.OL": "Deep Drilling",
     
-    # --- Biotech, MedTech & CleanTech / Hydrogen High Burn ---
-    "AZT.OL": "Biotech", "ABS.OL": "Biotech", "CIRC.OL": "Biotech", "LIFE.OL": "MedTech",
-    "NEL.OL": "Hydrogen Pureplay", "AGLX.OL": "Green Tech", "HEX.OL": "Hydrogen/Composites", 
-    "CAPS.OL": "CleanTech", "Scatec": "Renewables",
+    # --- Shipping, Tankers & LNG ---
+    "FRO.OL": "Tanker Shipping", "FLNG.OL": "LNG Shipping", "HAFNI.OL": "Product Tankers", 
+    "OET.OL": "Eco Tankers", "MPCC.OL": "Container Shipping", "WAWI.NL": "RoRo Shipping", 
+    "HAUTO.NL": "Car Carriers", "BWLPG.NL": "LPG Shipping", "CLCO.OL": "Shipping Spec", 
+    "NAPA.OL": "Shipping", "OTEC.OL": "Ocean Tech", "BEL.OL": "Dry Bulk", "GOGL.OL": "Dry Bulk",
     
-    # --- Seafood, Aquaculture Tech & Micro Industrials ---
-    "MOWI.OL": "Seafood", "SALM.OL": "Salmon", "BAKKA.OL": "Fish Farming", "AUSS.OL": "Seafood",
-    "AKVA.OL": "Fish Tech", "ASAS.OL": "Aquaculture", "SCANA.OL": "Industrial Micro",
+    # --- Industrials, Defense & Engineering ---
+    "KOG.OL": "Defense & Tech", "NHY.OL": "Materials & Metals", "YAR.OL": "Agriculture", 
+    "ORK.OL": "Industrial Conglomerate", "AKSO.OL": "Oil Services", "DOFG.OL": "Offshore Services", 
+    "SUBC.OL": "Subsea Engineering", "ODLO.OL": "Drilling Services", "BORR.OL": "Offshore Drilling", 
+    "SCANA.OL": "Industrial Micro", "VEI.OL": "Construction", "AFG.OL": "Construction",
+    "NORCO.OL": "Engineering", "ENDUR.OL": "Industrials", "KIT.OL": "Electronics Tech",
     
-    # --- IT, Venture & Small-Cap Tech ---
-    "WSTEP.OL": "Small IT", "MGN.OL": "Micro-Cap", "HUNT.OL": "Venture", "BINT.OL": "Micro-Cap",
-    "ATEA.OL": "IT Infrastructure", "AUTO.OL": "Robotics Tech", "ACR.OL": "Credit/Debt",
+    # --- Seafood & Aquaculture ---
+    "MOWI.OL": "Seafood", "SALM.OL": "Salmon", "BAKKA.OL": "Fish Farming", "LSG.OL": "Seafood", 
+    "AUSS.OL": "Seafood", "GSFG.OL": "Seafood", "AKVA.OL": "Fish Tech", "ASAS.OL": "Aquaculture",
     
-    # --- Large Caps / Benchmarks ---
-    "EQNR.OL": "Energy Giant", "DNB.OL": "Banking", "NHY.OL": "Materials", "YAR.OL": "Agriculture",
+    # --- Renewables, CleanTech & Hydrogen ---
+    "NEL.OL": "Hydrogen Pureplay", "SCATC.OL": "Renewables", "HEX.OL": "Hydrogen/Composites", 
+    "AGLX.OL": "Green Tech", "CAPS.OL": "CleanTech", "TOM.OL": "Recycling Tech",
+    
+    # --- Biotech, MedTech & High Burn ---
+    "AZT.OL": "Biotech", "ABS.OL": "Biotech", "CIRC.OL": "Biotech", "LIFE.OL": "MedTech", 
+    "PHO.OL": "Biopharma", "TRMED.OL": "Medical Tech",
+    
+    # --- IT, Software & Micro-Caps ---
+    "ATEA.OL": "IT Infrastructure", "AUTO.OL": "Robotics Tech", "NOD.OL": "Semiconductors", 
+    "WSTEP.OL": "Small IT", "MGN.OL": "Micro-Cap", "HUNT.OL": "Venture", "BINT.OL": "Micro-Cap", 
+    "CRAYON.OL": "Software Services", "ACR.OL": "Credit/Debt", "TECH.OL": "Small IT",
+    
+    # --- Financials, Banks & Insurance ---
+    "DNB.OL": "Banking", "GJFG.OL": "Insurance", "STB.OL": "Insurance", "PROT.OL": "Insurance", 
+    "SB1NO.OL": "Regional Bank", "SBNOR.OL": "Regional Bank", "EPR.OL": "Retail", "KID.OL": "Retail",
+    
+    # --- Broad Market Benchmarks ---
     "OSEBX.OL": "Oslo Benchmark"
 }
 
@@ -162,7 +182,7 @@ tab1, tab2 = st.tabs([
 
 with tab1:
     st.subheader("Mass Balance Sheet Runway, Volume Spikes & Capital Action Screener")
-    st.write("Scans all configured assets simultaneously for cash runways, unusual volume surges (signaling hidden accumulation, capital raising, or block trades), and status flags.")
+    st.write(f"Scans all {len(EXPANDED_UNIVERSE)} configured assets simultaneously for cash runways, unusual volume surges, and corporate status flags.")
 
     if st.button("RUN FULL UNIVERSE SCAN", type="primary"):
         results = []
@@ -196,7 +216,7 @@ with tab2:
     st.subheader("🕵️‍♂️ Insider Transactions, Unit Buybacks & Predictive Scenario Engine")
     st.write("Inspect executive open-market buying/selling activity, exact execution volumes, and real-time news catalysts paired with automated predictive models.")
     
-    selected_target = st.text_input("Enter Ticker to Inspect (e.g. NEL.OL, AKOBO.OL, DNB.OL)", "NEL.OL")
+    selected_target = st.text_input("Enter Ticker to Inspect (e.g. EQNR.OL, AKRBP.OL, NEL.OL)", "EQNR.OL")
     
     if st.button("ANALYZE INSIDERS, VOLUMES & CATALYSTS", type="primary"):
         target_clean = selected_target.strip().upper()
@@ -222,7 +242,6 @@ with tab2:
             st.subheader("👥 Insider Transactions & Ownership Metrics")
             try:
                 insider_purchases = t_obj.insider_purchases
-                insider_roster = t_obj.insider_roster_holders
                 
                 if insider_purchases is not None and not insider_purchases.empty:
                     st.write("**Recent Insider Purchase Activity Summary:**")
@@ -272,7 +291,6 @@ with tab2:
             st.markdown("---")
             st.subheader("🔮 Predictive Scenario & Strategic Outlook")
             
-            # Dynamic heuristic evaluation based on volume multiple and keywords
             has_buyback_event = any(not flag[0] for flag in locals().get('detected_flags', []))
             has_emission_event = any(flag[0] for flag in locals().get('detected_flags', []))
             
