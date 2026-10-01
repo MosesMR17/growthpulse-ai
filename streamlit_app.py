@@ -5,7 +5,7 @@ import streamlit as st
 import yfinance as yf
 
 # --- Page Config ---
-st.set_page_config(page_title="Nordic Universal Dilution & Emisjon Screener", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Nordic Universal Dilution, Buyback & Volume Radar", layout="wide", initial_sidebar_state="expanded")
 
 # --- High-Tech Terminal CSS Styling ---
 st.markdown("""
@@ -34,7 +34,7 @@ st.markdown("""
         margin-bottom: 15px;
         color: #fca5a5;
     }
-    .safe-box {
+    .buyback-box {
         background: rgba(16, 185, 129, 0.15);
         border: 1px solid #10b981;
         padding: 15px;
@@ -45,10 +45,10 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("⚡ NORDIC UNIVERSE DILUTION & EMISJON SCANNER")
-st.markdown("Automated balance sheet runway analysis and disclosure keyword tracking across an expanded array of small-cap, growth, and micro-cap equities.")
+st.title("⚡ NORDIC UNIVERSE: DILUTION, BUYBACK & VOLUME RADAR")
+st.markdown("Advanced balance sheet runway analysis, volume anomaly tracking, share buyback detection, and specific corporate news parsing.")
 
-# --- Comprehensive Universe of Norwegian Small-Caps, Micro-Caps, Biotech, & Explorers ---
+# --- Comprehensive Universe ---
 EXPANDED_UNIVERSE = {
     # --- Energy, Oil Services & Shipping Speculation ---
     "AKOBO.OL": "Mining Explorer", "CLCO.OL": "Shipping Spec", "DVD.OL": "Deep Drilling", 
@@ -68,12 +68,12 @@ EXPANDED_UNIVERSE = {
     "WSTEP.OL": "Small IT", "MGN.OL": "Micro-Cap", "HUNT.OL": "Venture", "BINT.OL": "Micro-Cap",
     "ATEA.OL": "IT Infrastructure", "AUTO.OL": "Robotics Tech", "ACR.OL": "Credit/Debt",
     
-    # --- Large Caps / Benchmarks for Baseline Comparison ---
+    # --- Large Caps / Benchmarks ---
     "EQNR.OL": "Energy Giant", "DNB.OL": "Banking", "NHY.OL": "Materials", "YAR.OL": "Agriculture",
     "OSEBX.OL": "Oslo Benchmark"
 }
 
-def analyze_company_burn(ticker):
+def analyze_company_comprehensive(ticker):
     try:
         t = yf.Ticker(ticker)
         bs = t.balance_sheet
@@ -82,7 +82,7 @@ def analyze_company_burn(ticker):
         if bs.empty or cf.empty:
             return None
             
-        # Extract Cash and Operating Cash Flow
+        # Cash & Cash Flow
         cash_keys = ['Cash And Cash Equivalents', 'Cash Cash Equivalents And Short Term Investments', 'Cash']
         cash = 0
         for k in cash_keys:
@@ -101,14 +101,8 @@ def analyze_company_burn(ticker):
                     op_cf = float(val)
                     break
                     
-        # Calculate runway
-        if op_cf < 0:
-            monthly_burn = abs(op_cf) / 12
-            runway_months = cash / monthly_burn if monthly_burn > 0 else 0
-        else:
-            runway_months = 999.0 # Positive cash flow
-            
-        # Risk classification
+        runway_months = (cash / (abs(op_cf) / 12)) if op_cf < 0 else 999.0
+        
         if runway_months == 999.0:
             status = "🟢 Safe (Cash Flow Positive)"
         elif runway_months < 6:
@@ -116,46 +110,59 @@ def analyze_company_burn(ticker):
         elif runway_months < 12:
             status = "🔴 High Risk (<12 Mo Runway)"
         elif runway_months < 24:
-            status = "🟡 Moderate Risk (12-24 Mo Runway)"
+            status = "🟡 Moderate Risk (12-24 Mo)"
         else:
             status = "🟢 Adequate Runway (>24 Mo)"
             
-        # Get latest stock price
-        hist = t.history(period="5d")
-        price = float(hist['Close'].iloc[-1]) if not hist.empty else 0.0
+        # Price, Volume Spike & Volatility Check
+        hist = t.history(period="30d")
+        if hist.empty:
+            return None
+            
+        price = float(hist['Close'].iloc[-1])
         prev_price = float(hist['Close'].iloc[-2]) if len(hist) > 1 else price
         daily_change = ((price / prev_price) - 1) * 100 if prev_price > 0 else 0.0
+        
+        recent_volume = float(hist['Volume'].iloc[-1])
+        avg_volume_20 = float(hist['Volume'].iloc[-20:].mean()) if len(hist) >= 20 else recent_volume
+        volume_ratio = (recent_volume / avg_volume_20) if avg_volume_20 > 0 else 1.0
+        
+        volume_status = "NORMAL"
+        if volume_ratio >= 3.0:
+            volume_status = "🔥 MASSIVE VOLUME SURGE (3x+ Avg)"
+        elif volume_ratio >= 1.8:
+            volume_status = "⚡ High Volume Activity"
 
         return {
             "Ticker": ticker,
             "Category": EXPANDED_UNIVERSE.get(ticker, "General Equity"),
-            "Price (NOK/USD)": round(price, 2),
+            "Price": round(price, 2),
             "Daily Change %": round(daily_change, 2),
-            "Cash Reserves": round(cash, 0),
-            "Annual Cash Flow": round(op_cf, 0),
-            "Est. Runway (Months)": round(runway_months, 1) if runway_months != 999.0 else "Profitable / Infinite",
-            "Dilution Status": status
+            "Volume Ratio": round(volume_ratio, 2),
+            "Volume Flag": volume_status,
+            "Est. Runway (Mo)": round(runway_months, 1) if runway_months != 999.0 else "Infinite",
+            "Dilution / Burn Status": status
         }
     except Exception:
         return None
 
-# --- Main Interface Layout ---
+# --- Main Navigation Tabs ---
 tab1, tab2 = st.tabs([
-    "📊 Universal Burn & Emisjon Screener", 
-    "📰 Real-Time Dilution & Capital Raise Feed"
+    "📊 Universal Runway, Buyback & Volume Screener", 
+    "📰 Deep-Dive News & Event Inspector"
 ])
 
 with tab1:
-    st.subheader("Mass Balance Sheet Runway & Cash Burn Matrix")
-    st.write("Scanning all configured small-caps, micro-caps, biotechs, and explorers simultaneously to identify companies burning through cash reserves.")
+    st.subheader("Mass Balance Sheet Runway, Volume Spikes & Capital Action Screener")
+    st.write("Scans all configured assets simultaneously for cash runways, unusual volume surges (signaling hidden accumulation, capital raising, or block trades), and status flags.")
 
-    if st.button("RUN FULL UNIVERSE DILUTION SCAN", type="primary"):
+    if st.button("RUN FULL UNIVERSE SCAN", type="primary"):
         results = []
         progress_bar = st.progress(0)
         total_tickers = len(EXPANDED_UNIVERSE)
         
         for i, ticker in enumerate(EXPANDED_UNIVERSE.keys()):
-            res = analyze_company_burn(ticker)
+            res = analyze_company_comprehensive(ticker)
             if res:
                 results.append(res)
             progress_bar.progress((i + 1) / total_tickers)
@@ -165,58 +172,86 @@ with tab1:
         if results:
             df_res = pd.DataFrame(results)
             
-            # Sort by runway ascending to put high dilution risk at the top
-            df_res['sort_val'] = df_res['Est. Runway (Months)'].apply(lambda x: 9999 if x == "Profitable / Infinite" else float(x))
-            df_res = df_res.sort_values(by='sort_val').drop(columns=['sort_val'])
+            # Sort by volume ratio or risk level
+            df_res['sort_val'] = df_res['Est. Runway (Mo)'].apply(lambda x: 9999 if x == "Infinite" else float(x))
+            df_res = df_res.sort_values(by=['Volume Ratio'], ascending=False)
             
-            def color_dilution(row):
-                if "CRITICAL" in row['Dilution Status'] or "High Risk" in row['Dilution Status']:
-                    return ['background-color: rgba(239, 68, 68, 0.15); color: #fca5a5;'] * len(row)
-                elif "Safe" in row['Dilution Status'] or "Adequate" in row['Dilution Status']:
-                    return ['background-color: rgba(16, 185, 129, 0.10); color: #34d399;'] * len(row)
+            def color_rows(row):
+                if "CRITICAL" in row['Dilution / Burn Status'] or "High Risk" in row['Dilution / Burn Status']:
+                    return ['background-color: rgba(239, 68, 68, 0.12); color: #fca5a5;'] * len(row)
+                elif "MASSIVE VOLUME" in row['Volume Flag']:
+                    return ['background-color: rgba(59, 130, 246, 0.15); color: #93c5fd;'] * len(row)
                 return ['color: #cbd5e1;'] * len(row)
 
-            st.dataframe(df_res.style.apply(color_dilution, axis=1), use_container_width=True)
+            st.dataframe(df_res.style.apply(color_rows, axis=1), use_container_width=True)
         else:
-            st.warning("Could not retrieve financial statements for the screening array.")
+            st.warning("Could not pull market feed datasets.")
 
 with tab2:
-    st.subheader("🚨 Live Corporate Disclosures & Emisjon Keyword Radar")
-    st.write("Automatically scans news wires and filings across the entire watchlist for capital actions, private placements, and equity offerings.")
+    st.subheader("📰 Targeted Stock News, Buyback & Emisjon Parser")
+    st.write("Select or input any ticker to extract recent headlines specifically checking for **Emisjon / Dilution** events or **Share Buybacks (Tilbakekjøp)** alongside volume characteristics.")
     
-    custom_input = st.text_input("Enter Tickers to Scan (Comma Separated)", "AKOBO.OL, AZT.OL, CLCO.OL, NEL.OL, NAS.OL, PENR.OL, CIRC.OL")
+    selected_target = st.text_input("Enter Ticker to Inspect (e.g. NEL.OL, AKOBO.OL, DNB.OL)", "AKOBO.OL")
     
-    if st.button("SCAN NEWS & FILINGS FOR EMISJONER"):
-        tickers_to_check = [t.strip().upper() for t in custom_input.split(",")]
-        emission_keywords = [
-            'emisjon', 'rettet emisjon', 'reparasjonsemisjon', 'private placement', 
-            'tegningsretter', 'subscription rights', 'dilution', 'capital raise', 
-            'share issue', 'bookbuilding', 'offering', 'shares', 'sluttet'
-        ]
+    if st.button("FETCH TARGETED NEWS & BUYBACK ANALYSIS", type="primary"):
+        target_clean = selected_target.strip().upper()
+        st.markdown(f"### Analysis Report for: `{target_clean}`")
         
-        found_events = 0
-        for ticker in tickers_to_check:
-            try:
-                t_obj = yf.Ticker(ticker)
-                news = t_obj.news
-                if news:
-                    for item in news:
-                        content = item.get('content', item)
-                        title = content.get('title', '')
-                        publisher = content.get('publisher', 'Market Wire')
-                        link = content.get('link', '#')
-                        
-                        if any(kw in title.lower() for kw in emission_keywords):
-                            found_events += 1
-                            st.markdown(f"""
-                            <div class="alert-box">
-                                <b>🚨 EMISJON / CAPITAL EVENT FLAG [{ticker}]</b><br>
-                                <a href="{link}" target="_blank" style="color: #fca5a5; font-size: 15px; text-decoration: underline; font-weight: 600;">{title}</a>
-                                <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher}</p>
-                            </div>
-                            """, unsafe_allow_html=True)
-            except Exception:
-                continue
+        try:
+            t_obj = yf.Ticker(target_clean)
+            
+            # Volume profile check
+            hist = t_obj.history(period="10d")
+            if not hist.empty:
+                cur_vol = hist['Volume'].iloc[-1]
+                avg_vol = hist['Volume'].iloc[:-1].mean()
+                v_mult = cur_vol / avg_vol if avg_vol > 0 else 1.0
                 
-        if found_events == 0:
-            st.info("No active filing keyword matches found in recent wire feeds for these specific tickers. Try adding other micro-caps or check back when new company disclosures hit the market wire.")
+                col_a, col_b, col_c = st.columns(3)
+                col_a.metric("Latest Close Price", f"{hist['Close'].iloc[-1]:.2f}")
+                col_b.metric("Latest Trading Volume", f"{cur_vol:,.0f}")
+                col_c.metric("Volume vs 10D Average", f"{v_mult:.2f}x")
+            
+            st.markdown("---")
+            st.subheader("Filing & News Feed Keyword Scanner")
+            
+            news_items = t_obj.news
+            if news_items:
+                emission_keywords = ['emisjon', 'rettet emisjon', 'reparasjonsemisjon', 'private placement', 'tegningsretter', 'subscription rights', 'dilution', 'capital raise', 'share issue', 'bookbuilding', 'offering', 'shares']
+                buyback_keywords = ['buyback', 'tilbakekjøp', 'repurchase', 'acquire own shares', 'egne aksjer']
+                
+                matched_any = False
+                for item in news_items:
+                    content = item.get('content', item)
+                    title = content.get('title', '')
+                    publisher = content.get('publisher', 'Market Wire')
+                    link = content.get('link', '#')
+                    title_lower = title.lower()
+                    
+                    is_emission = any(kw in title_lower for kw in emission_keywords)
+                    is_buyback = any(kw in title_lower for kw in buyback_keywords)
+                    
+                    if is_emission or is_buyback:
+                        matched_any = True
+                        box_class = "alert-box" if is_emission else "buyback-box"
+                        tag_label = "🚨 DETECTED: EMISJON / DILUTION EVENT" if is_emission else "🟢 DETECTED: SHARE BUYBACK PROGRAM"
+                        
+                        st.markdown(f"""
+                        <div class="{box_class}">
+                            <b>{tag_label}</b><br>
+                            <a href="{link}" target="_blank" style="color: #ffffff; font-size: 16px; text-decoration: underline; font-weight: 600;">{title}</a>
+                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Symbol: {target_clean}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+                
+                if not matched_any:
+                    st.info(f"No explicit Emisjon or Buyback keyword triggers found in the latest news feed for {target_clean}. Below are the most recent general news items:")
+                    for item in news_items[:5]:
+                        content = item.get('content', item)
+                        title = content.get('title', 'No Title')
+                        link = content.get('link', '#')
+                        st.markdown(f"- [{title}]({link})")
+            else:
+                st.warning("No recent news feed items found for this ticker.")
+        except Exception as e:
+            st.error(f"Error retrieving data for {target_clean}: {e}")
