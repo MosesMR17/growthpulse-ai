@@ -5,7 +5,7 @@ import streamlit as st
 import yfinance as yf
 
 # --- Page Config ---
-st.set_page_config(page_title="Nordic Universal Dilution, Buyback & Volume Radar", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Nordic Universal Dilution, Insider & Volume Intelligence", layout="wide", initial_sidebar_state="expanded")
 
 # --- High-Tech Terminal CSS Styling ---
 st.markdown("""
@@ -42,11 +42,19 @@ st.markdown("""
         margin-bottom: 15px;
         color: #34d399;
     }
+    .scenario-box {
+        background: rgba(59, 130, 246, 0.12);
+        border: 1px solid #3b82f6;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        color: #93c5fd;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("⚡ NORDIC UNIVERSE: DILUTION, BUYBACK & VOLUME RADAR")
-st.markdown("Advanced balance sheet runway analysis, volume anomaly tracking, share buyback detection, and specific corporate news parsing.")
+st.title("⚡ NORDIC UNIVERSE: DILUTION, INSIDER BUYBACK & VOLUME INTELLIGENCE")
+st.markdown("Advanced balance sheet runway analysis, insider transaction tracking, volume execution multiples, and predictive scenario modeling.")
 
 # --- Comprehensive Universe ---
 EXPANDED_UNIVERSE = {
@@ -149,7 +157,7 @@ def analyze_company_comprehensive(ticker):
 # --- Main Navigation Tabs ---
 tab1, tab2 = st.tabs([
     "📊 Universal Runway, Buyback & Volume Screener", 
-    "📰 Deep-Dive News & Event Inspector"
+    "🕵️‍♂️ Insider Trades, Buyback Units & Catalyst Predictor"
 ])
 
 with tab1:
@@ -171,9 +179,6 @@ with tab1:
         
         if results:
             df_res = pd.DataFrame(results)
-            
-            # Sort by volume ratio or risk level
-            df_res['sort_val'] = df_res['Est. Runway (Mo)'].apply(lambda x: 9999 if x == "Infinite" else float(x))
             df_res = df_res.sort_values(by=['Volume Ratio'], ascending=False)
             
             def color_rows(row):
@@ -188,20 +193,20 @@ with tab1:
             st.warning("Could not pull market feed datasets.")
 
 with tab2:
-    st.subheader("📰 Targeted Stock News, Buyback & Emisjon Parser")
-    st.write("Select or input any ticker to extract recent headlines specifically checking for **Emisjon / Dilution** events or **Share Buybacks (Tilbakekjøp)** alongside volume characteristics.")
+    st.subheader("🕵️‍♂️ Insider Transactions, Unit Buybacks & Predictive Scenario Engine")
+    st.write("Inspect executive open-market buying/selling activity, exact execution volumes, and real-time news catalysts paired with automated predictive models.")
     
-    selected_target = st.text_input("Enter Ticker to Inspect (e.g. NEL.OL, AKOBO.OL, DNB.OL)", "AKOBO.OL")
+    selected_target = st.text_input("Enter Ticker to Inspect (e.g. NEL.OL, AKOBO.OL, DNB.OL)", "NEL.OL")
     
-    if st.button("FETCH TARGETED NEWS & BUYBACK ANALYSIS", type="primary"):
+    if st.button("ANALYZE INSIDERS, VOLUMES & CATALYSTS", type="primary"):
         target_clean = selected_target.strip().upper()
-        st.markdown(f"### Analysis Report for: `{target_clean}`")
+        st.markdown(f"### Deep-Dive Intel Report for: `{target_clean}`")
         
         try:
             t_obj = yf.Ticker(target_clean)
             
             # Volume profile check
-            hist = t_obj.history(period="10d")
+            hist = t_obj.history(period="15d")
             if not hist.empty:
                 cur_vol = hist['Volume'].iloc[-1]
                 avg_vol = hist['Volume'].iloc[:-1].mean()
@@ -209,18 +214,34 @@ with tab2:
                 
                 col_a, col_b, col_c = st.columns(3)
                 col_a.metric("Latest Close Price", f"{hist['Close'].iloc[-1]:.2f}")
-                col_b.metric("Latest Trading Volume", f"{cur_vol:,.0f}")
-                col_c.metric("Volume vs 10D Average", f"{v_mult:.2f}x")
+                col_b.metric("Latest Unit Volume Executed", f"{cur_vol:,.0f}")
+                col_c.metric("Volume Multiple vs 14D Avg", f"{v_mult:.2f}x")
             
+            # Insider Transactions Parsing
             st.markdown("---")
-            st.subheader("Filing & News Feed Keyword Scanner")
+            st.subheader("👥 Insider Transactions & Ownership Metrics")
+            try:
+                insider_purchases = t_obj.insider_purchases
+                insider_roster = t_obj.insider_roster_holders
+                
+                if insider_purchases is not None and not insider_purchases.empty:
+                    st.write("**Recent Insider Purchase Activity Summary:**")
+                    st.dataframe(insider_purchases, use_container_width=True)
+                else:
+                    st.info("No direct tabular insider purchase breakdown returned by feed for this ticker.")
+            except Exception:
+                st.info("Insider purchase tables currently unavailable for this specific symbol.")
+                
+            # News & Buyback / Emisjon Keyword Parsing
+            st.markdown("---")
+            st.subheader("📰 Live News & Catalyst Extraction")
             
             news_items = t_obj.news
             if news_items:
                 emission_keywords = ['emisjon', 'rettet emisjon', 'reparasjonsemisjon', 'private placement', 'tegningsretter', 'subscription rights', 'dilution', 'capital raise', 'share issue', 'bookbuilding', 'offering', 'shares']
                 buyback_keywords = ['buyback', 'tilbakekjøp', 'repurchase', 'acquire own shares', 'egne aksjer']
                 
-                matched_any = False
+                detected_flags = []
                 for item in news_items:
                     content = item.get('content', item)
                     title = content.get('title', '')
@@ -232,26 +253,53 @@ with tab2:
                     is_buyback = any(kw in title_lower for kw in buyback_keywords)
                     
                     if is_emission or is_buyback:
-                        matched_any = True
+                        detected_flags.append((is_emission, title, publisher, link))
                         box_class = "alert-box" if is_emission else "buyback-box"
-                        tag_label = "🚨 DETECTED: EMISJON / DILUTION EVENT" if is_emission else "🟢 DETECTED: SHARE BUYBACK PROGRAM"
+                        tag_label = "🚨 EMISJON / DILUTION EVENT DETECTED" if is_emission else "🟢 SHARE BUYBACK (TILBAKEKJØP) DETECTED"
                         
                         st.markdown(f"""
                         <div class="{box_class}">
                             <b>{tag_label}</b><br>
-                            <a href="{link}" target="_blank" style="color: #ffffff; font-size: 16px; text-decoration: underline; font-weight: 600;">{title}</a>
-                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Symbol: {target_clean}</p>
+                            <a href="{link}" target="_blank" style="color: #ffffff; font-size: 15px; text-decoration: underline; font-weight: 600;">{title}</a>
+                            <p style="font-size: 11px; color: #cbd5e1; margin-top: 5px;">Source: {publisher} | Ticker: {target_clean}</p>
                         </div>
                         """, unsafe_allow_html=True)
                 
-                if not matched_any:
-                    st.info(f"No explicit Emisjon or Buyback keyword triggers found in the latest news feed for {target_clean}. Below are the most recent general news items:")
-                    for item in news_items[:5]:
-                        content = item.get('content', item)
-                        title = content.get('title', 'No Title')
-                        link = content.get('link', '#')
-                        st.markdown(f"- [{title}]({link})")
+                if not detected_flags:
+                    st.info(f"No active Emisjon or Buyback disclosures found in current news items for {target_clean}.")
+            
+            # --- Scenario Prediction Engine ---
+            st.markdown("---")
+            st.subheader("🔮 Predictive Scenario & Strategic Outlook")
+            
+            # Dynamic heuristic evaluation based on volume multiple and keywords
+            has_buyback_event = any(not flag[0] for flag in locals().get('detected_flags', []))
+            has_emission_event = any(flag[0] for flag in locals().get('detected_flags', []))
+            
+            if has_buyback_event and v_mult > 1.8:
+                st.markdown("""
+                <div class="scenario-box">
+                    <b>Scenario A: Institutional Accumulation & Executive Alignment (Bullish Setup)</b><br>
+                    <b>Trigger Factors:</b> Active buyback/repurchase disclosure combined with elevated volume execution (>1.8x average).<br>
+                    <b>Prediction & Outlook:</b> High probability of short-to-medium term supply constriction. When management actively buys units alongside high turnover, it absorbs floating supply. Expect a positive re-rating if upcoming operational updates align with estimates.
+                </div>
+                """, unsafe_allow_html=True)
+            elif has_emission_event:
+                st.markdown("""
+                <div class="alert-box">
+                    <b>Scenario B: Dilution Pressure & Capital Squeeze (Bearish / Caution Setup)</b><br>
+                    <b>Trigger Factors:</b> Dilution or *emisjon* headline detected.<br>
+                    <b>Prediction & Outlook:</b> Near-term price suppression is common during bookbuilding or discounted share issues. Volume spikes under these conditions typically represent institutional distribution or short-term overhang. Monitor discount rates and subscription rights values closely.
+                </div>
+                """, unsafe_allow_html=True)
             else:
-                st.warning("No recent news feed items found for this ticker.")
+                st.markdown("""
+                <div class="scenario-box">
+                    <b>Scenario C: Speculative Consolidation / Neutral Volatility</b><br>
+                    <b>Trigger Factors:</b> Normal trading volume ranges with no direct insider buyback or emergency dilution triggers.<br>
+                    <b>Prediction & Outlook:</b> Price action will be dictated entirely by broader sector macro trends and upcoming earnings reports. Watch for sudden volume spikes as the initial sign of an emerging catalyst.
+                </div>
+                """, unsafe_allow_html=True)
+                
         except Exception as e:
-            st.error(f"Error retrieving data for {target_clean}: {e}")
+            st.error(f"Error executing deep-dive analysis for {target_clean}: {e}")
