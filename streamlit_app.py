@@ -56,7 +56,7 @@ st.markdown("""
 st.title("⚡ NORDIC UNIVERSE: DILUTION, INSIDER BUYBACK & VOLUME INTELLIGENCE")
 st.markdown("Advanced balance sheet runway analysis, insider transaction tracking, volume execution multiples, and predictive scenario modeling across an expanded stock scan matrix.")
 
-# --- Expanded Universe (Massively Scaled Stock List) ---
+# --- Expanded Universe ---
 EXPANDED_UNIVERSE = {
     # --- Energy, Oil & Gas Majors / Exploration ---
     "EQNR.OL": "Energy Giant", "AKRBP.OL": "Oil & Gas E&P", "VAR.OL": "Oil & Gas E&P", 
@@ -110,7 +110,6 @@ def analyze_company_comprehensive(ticker):
         if bs.empty or cf.empty:
             return None
             
-        # Cash & Cash Flow
         cash_keys = ['Cash And Cash Equivalents', 'Cash Cash Equivalents And Short Term Investments', 'Cash']
         cash = 0
         for k in cash_keys:
@@ -142,7 +141,6 @@ def analyze_company_comprehensive(ticker):
         else:
             status = "🟢 Adequate Runway (>24 Mo)"
             
-        # Price, Volume Spike & Volatility Check
         hist = t.history(period="30d")
         if hist.empty:
             return None
@@ -169,7 +167,8 @@ def analyze_company_comprehensive(ticker):
             "Volume Ratio": round(volume_ratio, 2),
             "Volume Flag": volume_status,
             "Est. Runway (Mo)": round(runway_months, 1) if runway_months != 999.0 else "Infinite",
-            "Dilution / Burn Status": status
+            "Dilution / Burn Status": status,
+            "Runway_Months_Val": runway_months
         }
     except Exception:
         return None
@@ -201,6 +200,9 @@ with tab1:
             df_res = pd.DataFrame(results)
             df_res = df_res.sort_values(by=['Volume Ratio'], ascending=False)
             
+            # Clean temporary sort column for display
+            display_df = df_res.drop(columns=['Runway_Months_Val'])
+            
             def color_rows(row):
                 if "CRITICAL" in row['Dilution / Burn Status'] or "High Risk" in row['Dilution / Burn Status']:
                     return ['background-color: rgba(239, 68, 68, 0.12); color: #fca5a5;'] * len(row)
@@ -208,7 +210,7 @@ with tab1:
                     return ['background-color: rgba(59, 130, 246, 0.15); color: #93c5fd;'] * len(row)
                 return ['color: #cbd5e1;'] * len(row)
 
-            st.dataframe(df_res.style.apply(color_rows, axis=1), use_container_width=True)
+            st.dataframe(display_df.style.apply(color_rows, axis=1), use_container_width=True)
         else:
             st.warning("Could not pull market feed datasets.")
 
@@ -225,8 +227,29 @@ with tab2:
         try:
             t_obj = yf.Ticker(target_clean)
             
+            # Balance sheet quick check for runway calculation
+            bs = t_obj.balance_sheet
+            cf = t_obj.cashflow
+            runway_mo = 999.0
+            if not bs.empty and not cf.empty:
+                cash_keys = ['Cash And Cash Equivalents', 'Cash Cash Equivalents And Short Term Investments', 'Cash']
+                c_val = 0
+                for k in cash_keys:
+                    if k in bs.index and not pd.isna(bs.loc[k].iloc[0]):
+                        c_val = float(bs.loc[k].iloc[0])
+                        break
+                cf_keys = ['Operating Cash Flow', 'Cash Flow From Continuing Operating Activities']
+                cf_val = 0
+                for k in cf_keys:
+                    if k in cf.index and not pd.isna(cf.loc[k].iloc[0]):
+                        cf_val = float(cf.loc[k].iloc[0])
+                        break
+                if cf_val < 0:
+                    runway_mo = c_val / (abs(cf_val) / 12)
+
             # Volume profile check
             hist = t_obj.history(period="15d")
+            v_mult = 1.0
             if not hist.empty:
                 cur_vol = hist['Volume'].iloc[-1]
                 avg_vol = hist['Volume'].iloc[:-1].mean()
@@ -242,7 +265,6 @@ with tab2:
             st.subheader("👥 Insider Transactions & Ownership Metrics")
             try:
                 insider_purchases = t_obj.insider_purchases
-                
                 if insider_purchases is not None and not insider_purchases.empty:
                     st.write("**Recent Insider Purchase Activity Summary:**")
                     st.dataframe(insider_purchases, use_container_width=True)
@@ -256,11 +278,11 @@ with tab2:
             st.subheader("📰 Live News & Catalyst Extraction")
             
             news_items = t_obj.news
+            emission_keywords = ['emisjon', 'rettet emisjon', 'reparasjonsemisjon', 'private placement', 'tegningsretter', 'subscription rights', 'dilution', 'capital raise', 'share issue', 'bookbuilding', 'offering', 'shares']
+            buyback_keywords = ['buyback', 'tilbakekjøp', 'repurchase', 'acquire own shares', 'egne aksjer']
+            
+            detected_flags = []
             if news_items:
-                emission_keywords = ['emisjon', 'rettet emisjon', 'reparasjonsemisjon', 'private placement', 'tegningsretter', 'subscription rights', 'dilution', 'capital raise', 'share issue', 'bookbuilding', 'offering', 'shares']
-                buyback_keywords = ['buyback', 'tilbakekjøp', 'repurchase', 'acquire own shares', 'egne aksjer']
-                
-                detected_flags = []
                 for item in news_items:
                     content = item.get('content', item)
                     title = content.get('title', '')
@@ -274,7 +296,7 @@ with tab2:
                     if is_emission or is_buyback:
                         detected_flags.append((is_emission, title, publisher, link))
                         box_class = "alert-box" if is_emission else "buyback-box"
-                        tag_label = "🚨 EMISJON / DILUTION EVENT DETECTED" if is_emission else "🟢 SHARE BUYBACK (TILBAKEKJØP) DETECTED"
+                        tag_label = "�� EMISJON / DILUTION EVENT DETECTED" if is_emission else "🟢 SHARE BUYBACK (TILBAKEKJØP) DETECTED"
                         
                         st.markdown(f"""
                         <div class="{box_class}">
@@ -285,37 +307,45 @@ with tab2:
                         """, unsafe_allow_html=True)
                 
                 if not detected_flags:
-                    st.info(f"No active Emisjon or Buyback disclosures found in current news items for {target_clean}.")
+                    st.info(f"No direct keyword matches for buyback/emisjon in news headlines. Evaluating quantitative volume & balance sheet profile below:")
             
-            # --- Scenario Prediction Engine ---
+            # --- Dynamic Scenario Prediction Engine (Multi-Factor Fallback) ---
             st.markdown("---")
             st.subheader("🔮 Predictive Scenario & Strategic Outlook")
             
-            has_buyback_event = any(not flag[0] for flag in locals().get('detected_flags', []))
-            has_emission_event = any(flag[0] for flag in locals().get('detected_flags', []))
+            has_buyback_event = any(not flag[0] for flag in detected_flags)
+            has_emission_event = any(flag[0] for flag in detected_flags)
             
-            if has_buyback_event and v_mult > 1.8:
+            if has_buyback_event or (v_mult > 1.8 and runway_mo > 12):
                 st.markdown("""
                 <div class="scenario-box">
-                    <b>Scenario A: Institutional Accumulation & Executive Alignment (Bullish Setup)</b><br>
-                    <b>Trigger Factors:</b> Active buyback/repurchase disclosure combined with elevated volume execution (>1.8x average).<br>
-                    <b>Prediction & Outlook:</b> High probability of short-to-medium term supply constriction. When management actively buys units alongside high turnover, it absorbs floating supply. Expect a positive re-rating if upcoming operational updates align with estimates.
+                    <b>Scenario A: Institutional Accumulation & Liquidity Inflow (Bullish Setup)</b><br>
+                    <b>Trigger Factors:</b> Active buyback/repurchase headline or elevated volume execution (>1.8x average) paired with a solid cash runway (>12 months).<br>
+                    <b>Prediction & Outlook:</b> High probability of supply absorption. When volume surges without balance sheet distress, it typically points to institutional sponsorship or accumulation. Expect upward price continuation on positive operational catalysts.
                 </div>
                 """, unsafe_allow_html=True)
-            elif has_emission_event:
+            elif has_emission_event or runway_mo < 6:
                 st.markdown("""
                 <div class="alert-box">
-                    <b>Scenario B: Dilution Pressure & Capital Squeeze (Bearish / Caution Setup)</b><br>
-                    <b>Trigger Factors:</b> Dilution or *emisjon* headline detected.<br>
-                    <b>Prediction & Outlook:</b> Near-term price suppression is common during bookbuilding or discounted share issues. Volume spikes under these conditions typically represent institutional distribution or short-term overhang. Monitor discount rates and subscription rights values closely.
+                    <b>Scenario B: Dilution Pressure & Capital Squeeze (Bearish / High Risk Setup)</b><br>
+                    <b>Trigger Factors:</b> Dilution/*emisjon* headline detected or cash runway under 6 months.<br>
+                    <b>Prediction & Outlook:</b> Near-term price suppression and equity dilution risk are elevated. High volume spikes under short runway conditions often reflect institutional distribution ahead of distressed private placements. Monitor funding terms closely.
+                </div>
+                """, unsafe_allow_html=True)
+            elif v_mult >= 2.0:
+                st.markdown("""
+                <div class="scenario-box">
+                    <b>Scenario C: Volatility Breakout / High Momentum Alert</b><br>
+                    <b>Trigger Factors:</b> Significant volume surge (2x+ normal turnover) with stable solvency metrics.<br>
+                    <b>Prediction & Outlook:</b> High short-term volatility. Price action is testing liquidity thresholds, signaling an impending news release, block trade, or sector rotation shift. Keep tight risk controls.
                 </div>
                 """, unsafe_allow_html=True)
             else:
                 st.markdown("""
                 <div class="scenario-box">
-                    <b>Scenario C: Speculative Consolidation / Neutral Volatility</b><br>
-                    <b>Trigger Factors:</b> Normal trading volume ranges with no direct insider buyback or emergency dilution triggers.<br>
-                    <b>Prediction & Outlook:</b> Price action will be dictated entirely by broader sector macro trends and upcoming earnings reports. Watch for sudden volume spikes as the initial sign of an emerging catalyst.
+                    <b>Scenario D: Speculative Consolidation / Neutral Range</b><br>
+                    <b>Trigger Factors:</b> Normal trading volume ranges with stable balance sheet reserves and no immediate macro catalysts.<br>
+                    <b>Prediction & Outlook:</b> Range-bound price action dictated by sector trends. Watch for volume expansion or filing disclosures as the primary trigger for a trend break.
                 </div>
                 """, unsafe_allow_html=True)
                 
