@@ -1,5 +1,1 @@
-streamlit
-pandas
-numpy
-yfinance
-plotly
+streamlit\nplotly\npandas\nnumpy\nyfinance

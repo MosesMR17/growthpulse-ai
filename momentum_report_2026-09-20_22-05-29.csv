@@ -1,6 +1,0 @@
-Rank,Ticker,3M Momentum (%),Sentiment,Entry ($),Stop Loss ($),Target 1 ($)
-1,TSLA,10.86,Neutral-Positive,364.27,349.7,386.13
-2,AAPL,7.37,Neutral-Positive,336.13,322.68,356.3
-3,NVDA,-0.64,Bullish,222.27,213.38,235.61
-4,MSFT,-1.06,Neutral-Positive,493.78,474.03,523.41
-5,AMZN,-7.57,Bullish,253.71,243.56,268.93
